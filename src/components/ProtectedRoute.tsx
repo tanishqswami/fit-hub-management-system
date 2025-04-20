@@ -15,6 +15,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { user, userData, isLoading } = useAuth();
   const location = useLocation();
 
+  // Add debug logs
+  console.log("Protected Route - User:", user?.email);
+  console.log("Protected Route - User Data:", userData);
+  console.log("Protected Route - Is Loading:", isLoading);
+  console.log("Protected Route - Allowed Roles:", allowedRoles);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -27,11 +33,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!user) {
+    console.log("Protected Route - No user, redirecting to /auth");
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   if (allowedRoles.length > 0 && userData && !allowedRoles.includes(userData.role)) {
     // Redirect to the appropriate dashboard based on the user's role
+    console.log("Protected Route - User has incorrect role, redirecting to proper dashboard");
     if (userData.role === "admin") {
       return <Navigate to="/admin" replace />;
     } else if (userData.role === "trainer") {
@@ -44,6 +52,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/auth" replace />;
   }
 
+  console.log("Protected Route - Access granted");
   return <>{children}</>;
 };
 

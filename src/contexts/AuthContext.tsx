@@ -38,10 +38,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Set up auth state listener
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, currentSession) => {
+          console.log("Auth state changed:", event, currentSession?.user?.email);
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
           
           if (currentSession?.user) {
+            // Use setTimeout to prevent deadlock with Supabase auth state
             setTimeout(async () => {
               await fetchUserData(currentSession.user.id);
             }, 0);
@@ -72,6 +74,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUserData = async (userId: string) => {
     try {
+      console.log("Fetching user data for:", userId);
       const { data, error } = await supabase
         .from("users")
         .select("id, name, email, role")
@@ -79,12 +82,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single();
 
       if (error) {
+        console.error("Error fetching user data:", error);
         throw error;
       }
 
       if (data) {
+        console.log("User data fetched:", data);
         setUserData(data as UserData);
         redirectBasedOnRole(data.role);
+      } else {
+        console.error("No user data found");
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -94,6 +101,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const redirectBasedOnRole = (role: string) => {
     const currentPath = window.location.pathname;
+    
+    console.log("Redirecting based on role:", role, "Current path:", currentPath);
     
     // Don't redirect if already on the correct dashboard
     if (
@@ -118,20 +127,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log("Signing in with:", email);
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error("Sign in error:", error.message);
         throw error;
       }
 
+      console.log("Sign in successful:", data);
       toast({
         title: "Success",
         description: "Successfully signed in",
       });
     } catch (error: any) {
+      console.error("Sign in error:", error.message);
       toast({
         title: "Error signing in",
         description: error.message,
@@ -143,6 +156,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signUp = async (email: string, password: string, name: string, role: string) => {
     try {
+      console.log("Signing up with:", email, name, role);
+      
       // Create the auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
@@ -151,6 +166,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (authError) throw authError;
       if (!authData.user) throw new Error("Failed to create user");
+
+      console.log("Auth user created:", authData.user.id);
 
       // Insert into users table
       const { error: userError } = await supabase
@@ -166,10 +183,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (userError) throw userError;
 
-      toast({
-        title: "Account created",
-        description: "You've successfully signed up",
-      });
+      console.log("User record inserted");
       
       // If user is a member or trainer, create appropriate record
       if (role === "member") {
@@ -182,6 +196,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             },
           ]);
         if (memberError) throw memberError;
+        console.log("Member record inserted");
       } else if (role === "trainer") {
         const { error: trainerError } = await supabase
           .from("trainers")
@@ -191,8 +206,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             },
           ]);
         if (trainerError) throw trainerError;
+        console.log("Trainer record inserted");
       }
+
+      toast({
+        title: "Account created",
+        description: "You've successfully signed up",
+      });
     } catch (error: any) {
+      console.error("Sign up error:", error.message);
       toast({
         title: "Error signing up",
         description: error.message,

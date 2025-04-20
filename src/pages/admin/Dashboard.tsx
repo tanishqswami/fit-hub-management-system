@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -101,23 +100,28 @@ const AdminDashboard = () => {
     const fetchTopTrainer = async () => {
       const { data, error } = await supabase
         .from("members")
-        .select("trainer_id, trainers(user_id)")
+        .select("trainer_id, trainers(user_id, users(name))")
         .not("trainer_id", "is", null);
       
       if (error) {
-        console.error("Error fetching trainer data:", error);
+        console.error("Error fetching top trainer:", error);
         return;
       }
       
-      // Count members per trainer
-      const trainerCounts: Record<string, number> = {};
-      data.forEach(member => {
+      const trainerCounts = data.reduce((acc: Record<string, { count: number; name: string }>, member: any) => {
         if (member.trainer_id) {
-          trainerCounts[member.trainer_id] = (trainerCounts[member.trainer_id] || 0) + 1;
+          const trainerId = member.trainer_id.toString();
+          if (!acc[trainerId]) {
+            acc[trainerId] = {
+              count: 0,
+              name: member.trainers?.users?.name || "Unknown"
+            };
+          }
+          acc[trainerId].count++;
         }
-      });
+        return acc;
+      }, {});
       
-      // Find trainer with most members
       let topTrainerId = null;
       let maxCount = 0;
       Object.entries(trainerCounts).forEach(([trainerId, count]) => {
@@ -127,7 +131,6 @@ const AdminDashboard = () => {
         }
       });
       
-      // If we have a top trainer, get their details
       if (topTrainerId) {
         const { data: trainerData, error: trainerError } = await supabase
           .from("trainers")
